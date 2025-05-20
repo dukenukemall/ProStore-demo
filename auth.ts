@@ -4,6 +4,8 @@ import { prisma } from "./db/prisma";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compareSync } from "bcrypt";
 import type { NextAuthConfig } from "next-auth";
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 export const config = {
   pages: {
@@ -69,7 +71,26 @@ export const config = {
       }
       return token;
     },
+    authorized({ auth, request }: any) {
+      return true;
+    },
   },
 } satisfies NextAuthConfig;
 
 export const { handlers, signIn, signOut, auth } = NextAuth(config);
+
+// Helper function to ensure a session cart ID exists
+export async function ensureSessionCartId() {
+  const cookieStore = await cookies();
+  let sessionCartId = cookieStore.get("sessionCartId")?.value;
+
+  if (!sessionCartId) {
+    sessionCartId = crypto.randomUUID();
+    cookieStore.set("sessionCartId", sessionCartId, {
+      maxAge: 30 * 24 * 60 * 60, // 30 days
+      path: "/",
+    });
+  }
+
+  return sessionCartId;
+}
