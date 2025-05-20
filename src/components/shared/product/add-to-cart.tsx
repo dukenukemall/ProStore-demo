@@ -1,43 +1,95 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { CartItem } from "../../../../types";
-import { PlusIcon } from "lucide-react";
+import { CartItem, Cart } from "../../../../types";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
-import { addItemToCart } from "@/lib/actions/cart.actions";
+import { MinusIcon, PlusIcon, Loader } from "lucide-react";
+import { addItemToCart, removeItemFromCart } from "@/lib/actions/cart.actions";
+import { useTransition } from "react";
 
-const AddToCart = ({ item }: { item: CartItem }) => {
+const AddToCart = ({ item, cart }: { item: CartItem; cart?: Cart }) => {
   const router = useRouter();
   const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
+
   const handleAddToCart = async () => {
-    const rest = await addItemToCart(item);
-    if (!rest.success) {
+    startTransition(async () => {
+      const rest = await addItemToCart(item);
+      if (!rest.success) {
+        toast({
+          description: rest.message,
+          variant: "destructive",
+        });
+        return;
+      }
+      // handle success
       toast({
         description: rest.message,
-        variant: "destructive",
+        action: (
+          <ToastAction
+            className="bg-primary text-white hover:bg-gray-800"
+            altText="View Cart"
+            onClick={() => router.push("/cart")}
+          >
+            Go To Cart
+          </ToastAction>
+        ),
       });
-      return;
-    }
-    // handle success
-    toast({
-      description: `${item.name} has been added to your cart.`,
-      action: (
-        <ToastAction
-          className="bg-primary text-white hover:bg-gray-800"
-          altText="View Cart"
-          onClick={() => router.push("/cart")}
-        >
-          Go To Cart
-        </ToastAction>
-      ),
+      router.refresh();
     });
-    router.refresh();
   };
-  return (
+
+  // handle remove from cart
+  const handleRemoveFromCart = async () => {
+    startTransition(async () => {
+      if (existItem && existItem.quantity === 1) {
+        const rest = await removeItemFromCart(item.productId);
+        if (!rest.success) {
+          toast({
+            description: rest.message,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            description: `${item.name} removed from Cart`,
+            variant: "default",
+          });
+        }
+        router.refresh();
+        return;
+      }
+
+      const rest = await removeItemFromCart(item.productId);
+      if (!rest.success) {
+        toast({
+          description: rest.message,
+          variant: rest.success ? "default" : "destructive",
+        });
+      }
+      router.refresh();
+    });
+  };
+
+  // check if item is in cart
+  const existItem =
+    cart && cart.items.find((x) => x.productId === item.productId);
+  return existItem ? (
+    <div>
+      <Button type="button" variant="outline" onClick={handleRemoveFromCart}>
+        <MinusIcon className="w-4 h-4" />
+        {isPending && <Loader className="w-4 h-4 animate-spin" />}
+      </Button>
+      <span className="px-2">{existItem.quantity}</span>
+      <Button type="button" variant="outline" onClick={handleAddToCart}>
+        <PlusIcon className="w-4 h-4" />
+        {isPending && <Loader className="w-4 h-4 animate-spin" />}
+      </Button>
+    </div>
+  ) : (
     <Button className="w-full" type="button" onClick={handleAddToCart}>
       {" "}
-      + Add To Cart{" "}
+      + Add To Cart {isPending && <Loader className="w-4 h-4 animate-spin" />}
     </Button>
   );
 };
