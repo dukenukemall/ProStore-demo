@@ -13,7 +13,11 @@ export async function signInWithCredentials(
       email: formData.get("email"),
       password: formData.get("password"),
     });
-    await signIn("credentials", user);
+    const callbackUrl = formData.get("callbackUrl")?.toString() || "/";
+    await signIn("credentials", {
+      ...user,
+      redirectTo: callbackUrl,
+    });
     return { success: true, message: "Signed in successfully" };
   } catch (error) {
     if (isRedirectError(error)) {
